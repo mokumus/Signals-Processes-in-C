@@ -31,8 +31,9 @@
 #define MY_FLAGS O_RDWR | O_SYNC
 
 /*--------------------------GLOBALS---------------------------*/
-pid_t pid[8] = {-1,-1,-1,-1,-1,-1,-1,-1 };
+pid_t pid[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
 sig_atomic_t exit_requested = 0;
+struct flock lock;
 
 /* -----------------------PROTOTYPES--------------------------*/
 void print_usage(void);
@@ -42,6 +43,7 @@ void process_line(int fd, int n);
 int main(int argc, char *argv[])
 {
 	int fd;
+	
 
 	printf("argv[1]: %s\n", argv[1]);
 	if (argv[1] == NULL)
@@ -59,7 +61,7 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-
+	setbuf(stdout, NULL); // Disable stdout buffering for library functions
 
 	// Create 8 childeren process=========================================
 	for (int i = 0; i < 8; i++)
@@ -163,8 +165,8 @@ int is_parent(void)
 	return pid[0] != 0 && pid[1] != 0 && pid[2] != 0 && pid[3] != 0 && pid[4] != 0 && pid[5] != 0 && pid[6] != 0 && pid[7] != 0;
 }
 
-
-void process_line(int fd, int n){
+void process_line(int fd, int n)
+{
 	int i = 0, k = 0, j = 0;
 	int line = 0;
 	char c;
@@ -172,37 +174,52 @@ void process_line(int fd, int n){
 	char after_buffer[1024];
 	float arr[8][2];
 	//char buffer[255];
-	while(pread(fd, &c, 1, i++) && line <= n){
-		if(line == n)
+
+	/* Initialize the flock structure. */
+	memset (&lock, 0, sizeof(lock));
+	lock.l_type = F_WRLCK;
+	/* Place a write lock on the file. */
+	fcntl (fd, F_SETLKW, &lock);
+
+
+
+	while (pread(fd, &c, 1, i++) && line <= n)
+	{
+		if (line == n)
 			buffer[k++] = c;
-		
-		if(c == '\n'){
-			buffer[k-1] = '\0';
+
+		if (c == '\n')
+		{
+			buffer[k - 1] = '\0';
 			line++;
 		}
 	}
 
-	printf("buff%d: %s\n", n,buffer);
-	while(pread(fd, &c, 1, (i++)-1)){
+	//printf("buff%d: %s\n", n,buffer);
+	while (pread(fd, &c, 1, (i++) - 1))
+	{
 		after_buffer[j++] = c;
 	}
 	after_buffer[j] = '\0';
 
 	const char padding[] = ": x.x\n";
 
-	pwrite(fd, padding, strlen(padding), i-j - 3);
-	pwrite(fd, after_buffer, j, i-j - 3 + strlen(padding));
-
-	printf("after_buffer:\n%s ", after_buffer);
-
-	sscanf (buffer,"%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f",&arr[0][0],&arr[0][1],
-																																	 &arr[1][0],&arr[1][1],
-																																	 &arr[2][0],&arr[2][1],
-																																	 &arr[3][0],&arr[3][1],
-																																	 &arr[4][0],&arr[4][1],
-																																	 &arr[5][0],&arr[5][1],
-																																	 &arr[6][0],&arr[6][1],
-																																	 &arr[7][0],&arr[7][1]);
+	pwrite(fd, padding, strlen(padding), i - j - 3);
+	pwrite(fd, after_buffer, j, i - j - 3 + strlen(padding));
 
 
+	/* Release the lock. */
+	lock.l_type = F_UNLCK;
+	fcntl (fd, F_SETLKW, &lock);
+
+	//printf("after_buffer:\n%s ", after_buffer);
+
+	sscanf(buffer, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f", &arr[0][0], &arr[0][1],
+				 &arr[1][0], &arr[1][1],
+				 &arr[2][0], &arr[2][1],
+				 &arr[3][0], &arr[3][1],
+				 &arr[4][0], &arr[4][1],
+				 &arr[5][0], &arr[5][1],
+				 &arr[6][0], &arr[6][1],
+				 &arr[7][0], &arr[7][1]);
 }
