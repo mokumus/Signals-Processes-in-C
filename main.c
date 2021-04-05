@@ -21,6 +21,12 @@
 #include <errno.h>
 
 /*--------------------------DEFINES---------------------------*/
+#define errExit(msg)    \
+	do                    \
+	{                     \
+		perror(msg);        \
+		exit(EXIT_FAILURE); \
+	} while (0)
 
 #define MY_FLAGS O_RDWR | O_SYNC
 
@@ -31,11 +37,11 @@ sig_atomic_t exit_requested = 0;
 /* -----------------------PROTOTYPES--------------------------*/
 void print_usage(void);
 int is_parent(void);
+int read_line(int fd);
 
 int main(int argc, char *argv[])
 {
 	int fd;
-	pid_t wpid;
 
 	printf("argv[1]: %s\n", argv[1]);
 	if (argv[1] == NULL)
@@ -57,6 +63,8 @@ int main(int argc, char *argv[])
 	for (int i = 0; i < 8; i++)
 	{
 		pid[i] = fork();
+		if (pid[i] == -1)
+			errExit("fork");
 		if (pid[i] == 0)
 			break;
 	}
@@ -69,17 +77,16 @@ int main(int argc, char *argv[])
 		printf("I'm the father [pid: %d, ppid: %d]\n", getpid(), getppid());
 
 		// Wait for all the childeren=====================================
-		do
-		{
-			wpid = wait(NULL);
-		} while (wpid == -1 && errno == EINTR);
 
-		if (wpid == -1)
+		for (int i = 0; i < 8; i++)
 		{
-			perror("Wait error\n");
-			exit(EXIT_FAILURE);
+			int status;
+			waitpid(pid[i], &status, 0);
 		}
 		// =====================================Wait for all the childeren
+		printf("Father: all childeren exited\n");
+		close(fd);
+		exit(EXIT_SUCCESS);
 	}
 
 	// Child processes ===================================================
@@ -138,7 +145,6 @@ int main(int argc, char *argv[])
 		}
 	}
 	// ===================================================================
-	 exit(EXIT_SUCCESS);
 
 	return 0;
 }
