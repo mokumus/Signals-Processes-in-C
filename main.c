@@ -37,7 +37,7 @@ sig_atomic_t exit_requested = 0;
 /* -----------------------PROTOTYPES--------------------------*/
 void print_usage(void);
 int is_parent(void);
-int read_line(int fd, int n);
+void process_line(int fd, int n);
 
 int main(int argc, char *argv[])
 {
@@ -59,11 +59,10 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	read_line(fd, 0);
-	read_line(fd, 0);
+
 
 	// Create 8 childeren process=========================================
-	for (int i = 9; i < 8; i++)
+	for (int i = 0; i < 8; i++)
 	{
 		pid[i] = fork();
 		if (pid[i] == -1)
@@ -100,50 +99,50 @@ int main(int argc, char *argv[])
 		if (pid[0] == 0)
 		{
 			printf("I'm C0 [pid: %d, ppid: %d]\n", getpid(), getppid());
-
+			process_line(fd, 0);
 			_exit(EXIT_SUCCESS);
 		}
 		else if (pid[1] == 0)
 		{
 			printf("I'm C1 [pid: %d, ppid: %d]\n", getpid(), getppid());
-
+			process_line(fd, 1);
 			_exit(EXIT_SUCCESS);
 		}
 		else if (pid[2] == 0)
 		{
 			printf("I'm C2 [pid: %d, ppid: %d]\n", getpid(), getppid());
-
+			process_line(fd, 2);
 			_exit(EXIT_SUCCESS);
 		}
 		else if (pid[3] == 0)
 		{
 			printf("I'm C3 [pid: %d, ppid: %d]\n", getpid(), getppid());
-
+			process_line(fd, 3);
 			_exit(EXIT_SUCCESS);
 		}
 		else if (pid[4] == 0)
 		{
 			printf("I'm C4 [pid: %d, ppid: %d]\n", getpid(), getppid());
-
+			process_line(fd, 4);
 			_exit(EXIT_SUCCESS);
 		}
 		else if (pid[5] == 0)
 		{
 			printf("I'm C5 [pid: %d, ppid: %d]\n", getpid(), getppid());
-
+			process_line(fd, 5);
 			_exit(EXIT_SUCCESS);
 		}
 
 		else if (pid[6] == 0)
 		{
 			printf("I'm C6 [pid: %d, ppid: %d]\n", getpid(), getppid());
-
+			process_line(fd, 6);
 			_exit(EXIT_SUCCESS);
 		}
 		else if (pid[7] == 0)
 		{
 			printf("I'm C7 [pid: %d, ppid: %d]\n", getpid(), getppid());
-
+			process_line(fd, 7);
 			_exit(EXIT_SUCCESS);
 		}
 	}
@@ -165,14 +164,15 @@ int is_parent(void)
 }
 
 
-int read_line(int fd, int n){
-	int i = 0, k = 0;
+void process_line(int fd, int n){
+	int i = 0, k = 0, j = 0;
 	int line = 0;
 	char c;
-	char buffer[255];
+	char buffer[1024];
+	char after_buffer[1024];
 	float arr[8][2];
 	//char buffer[255];
-	while(pread(fd, &c, 1, i++)){
+	while(pread(fd, &c, 1, i++) && line <= n){
 		if(line == n)
 			buffer[k++] = c;
 		
@@ -180,8 +180,20 @@ int read_line(int fd, int n){
 			buffer[k-1] = '\0';
 			line++;
 		}
-			
 	}
+
+	printf("buff%d: %s\n", n,buffer);
+	while(pread(fd, &c, 1, (i++)-1)){
+		after_buffer[j++] = c;
+	}
+	after_buffer[j] = '\0';
+
+	const char padding[] = ": x.x\n";
+
+	pwrite(fd, padding, strlen(padding), i-j - 3);
+	pwrite(fd, after_buffer, j, i-j - 3 + strlen(padding));
+
+	printf("after_buffer:\n%s ", after_buffer);
 
 	sscanf (buffer,"%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f",&arr[0][0],&arr[0][1],
 																																	 &arr[1][0],&arr[1][1],
@@ -192,9 +204,5 @@ int read_line(int fd, int n){
 																																	 &arr[6][0],&arr[6][1],
 																																	 &arr[7][0],&arr[7][1]);
 
-	for(int x = 0; x < 8; x++){
-		printf("arr[%d]: %.1f, %.1f\n", x, arr[x][0], arr[x][1]);
-	}
 
-	return 0;
 }
