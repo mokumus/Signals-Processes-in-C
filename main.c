@@ -26,9 +26,21 @@ pid_t pid[8];
 sig_atomic_t exit_requested = 0;  
 
 /* -----------------------PROTOTYPES--------------------------*/
+void print_usage(void);
+
 
 int main(int argc, char * argv[]){
-	
+	printf("argv[1]: %s\n", argv[1]);
+	if(argv[1] == NULL) {
+		print_usage();
+		exit(EXIT_FAILURE);
+	}
 
 	return 0;
+}
+
+void print_usage(void) {
+	printf("========================================\n"
+				 "Usage:\n"
+				 "$ ./processM pathToFile\n");
 }
