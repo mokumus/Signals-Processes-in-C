@@ -43,7 +43,6 @@ void process_line(int fd, int n);
 int main(int argc, char *argv[])
 {
 	int fd;
-	
 
 	printf("argv[1]: %s\n", argv[1]);
 	if (argv[1] == NULL)
@@ -176,12 +175,10 @@ void process_line(int fd, int n)
 	//char buffer[255];
 
 	/* Initialize the flock structure. */
-	memset (&lock, 0, sizeof(lock));
+	memset(&lock, 0, sizeof(lock));
 	lock.l_type = F_WRLCK;
 	/* Place a write lock on the file. */
-	fcntl (fd, F_SETLKW, &lock);
-
-
+	fcntl(fd, F_SETLKW, &lock);
 
 	while (pread(fd, &c, 1, i++) && line <= n)
 	{
@@ -207,10 +204,9 @@ void process_line(int fd, int n)
 	pwrite(fd, padding, strlen(padding), i - j - 3);
 	pwrite(fd, after_buffer, j, i - j - 3 + strlen(padding));
 
-
 	/* Release the lock. */
 	lock.l_type = F_UNLCK;
-	fcntl (fd, F_SETLKW, &lock);
+	fcntl(fd, F_SETLKW, &lock);
 
 	//printf("after_buffer:\n%s ", after_buffer);
 
