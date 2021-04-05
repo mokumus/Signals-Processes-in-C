@@ -166,16 +166,34 @@ int is_parent(void)
 
 
 int read_line(int fd, int n){
-	int i = 0;
+	int i = 0, k = 0;
 	int line = 0;
 	char c;
+	char buffer[255];
+	float arr[8][2];
 	//char buffer[255];
 	while(pread(fd, &c, 1, i++)){
-		if(line == n){
-			printf("%c", c);
-		}
-		if(c == '\n')
+		if(line == n)
+			buffer[k++] = c;
+		
+		if(c == '\n'){
+			buffer[k-1] = '\0';
 			line++;
+		}
+			
+	}
+
+	sscanf (buffer,"%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f",&arr[0][0],&arr[0][1],
+																																	 &arr[1][0],&arr[1][1],
+																																	 &arr[2][0],&arr[2][1],
+																																	 &arr[3][0],&arr[3][1],
+																																	 &arr[4][0],&arr[4][1],
+																																	 &arr[5][0],&arr[5][1],
+																																	 &arr[6][0],&arr[6][1],
+																																	 &arr[7][0],&arr[7][1]);
+
+	for(int x = 0; x < 8; x++){
+		printf("arr[%d]: %.1f, %.1f\n", x, arr[x][0], arr[x][1]);
 	}
 
 	return 0;
