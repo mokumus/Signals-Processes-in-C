@@ -35,6 +35,7 @@ struct flock lock;
 void print_usage(void);
 int is_parent(void);
 void process_line(int fd, int n);
+void sig_handler(int sig_no);
 
 int main(int argc, char *argv[])
 {
@@ -57,6 +58,7 @@ int main(int argc, char *argv[])
 	}
 
 	setbuf(stdout, NULL); // Disable stdout buffering for library functions
+	signal(SIGINT, sig_handler);
 
 	// Create 8 childeren process=========================================
 	for (int i = 0; i < 8; i++)
@@ -77,15 +79,24 @@ int main(int argc, char *argv[])
 
 		// Wait for all the childeren=====================================
 
-		for (int i = 0; i < 8; i++)
+		for (int i = 0; i < 8 || exit_requested != 0 ; i++)
 		{
 			int status;
 			waitpid(pid[i], &status, 0);
 		}
 		// =====================================Wait for all the childeren
-		printf("Father: all childeren exited\n");
-		close(fd);
-		exit(EXIT_SUCCESS);
+		if (exit_requested)
+		{
+			printf("\nExit request by the user. Signal: %d\n", exit_requested);
+			exit(EXIT_FAILURE);
+		}
+		else
+		{
+			printf("Father: all childeren exited\n");
+			close(fd);
+			exit(EXIT_SUCCESS);
+		}
+
 	}
 
 	// Child processes ===================================================
@@ -214,4 +225,10 @@ void process_line(int fd, int n)
 				 &arr[5][0], &arr[5][1],
 				 &arr[6][0], &arr[6][1],
 				 &arr[7][0], &arr[7][1]);
+}
+
+void sig_handler(int sig_no)
+{
+	if (sig_no != SIGUSR1 && sig_no != SIGUSR2)
+		exit_requested = sig_no;
 }
