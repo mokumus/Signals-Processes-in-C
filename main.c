@@ -31,13 +31,13 @@
 #define MY_FLAGS O_RDWR | O_SYNC
 
 /*--------------------------GLOBALS---------------------------*/
-pid_t pid[8];
+pid_t pid[8] = {-1,-1,-1,-1,-1,-1,-1,-1 };
 sig_atomic_t exit_requested = 0;
 
 /* -----------------------PROTOTYPES--------------------------*/
 void print_usage(void);
 int is_parent(void);
-int read_line(int fd);
+int read_line(int fd, int n);
 
 int main(int argc, char *argv[])
 {
@@ -59,8 +59,11 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
+	read_line(fd, 0);
+	read_line(fd, 0);
+
 	// Create 8 childeren process=========================================
-	for (int i = 0; i < 8; i++)
+	for (int i = 9; i < 8; i++)
 	{
 		pid[i] = fork();
 		if (pid[i] == -1)
@@ -159,4 +162,21 @@ void print_usage(void)
 int is_parent(void)
 {
 	return pid[0] != 0 && pid[1] != 0 && pid[2] != 0 && pid[3] != 0 && pid[4] != 0 && pid[5] != 0 && pid[6] != 0 && pid[7] != 0;
+}
+
+
+int read_line(int fd, int n){
+	int i = 0;
+	int line = 0;
+	char c;
+	//char buffer[255];
+	while(pread(fd, &c, 1, i++)){
+		if(line == n){
+			printf("%c", c);
+		}
+		if(c == '\n')
+			line++;
+	}
+
+	return 0;
 }
