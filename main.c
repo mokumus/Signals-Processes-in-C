@@ -29,7 +29,9 @@
 /*--------------------------GLOBALS---------------------------*/
 pid_t pid[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
 sig_atomic_t exit_requested = 0;
+sig_atomic_t sigusr1_count = 0;
 struct flock lock;
+sigset_t mask, oldmask;
 
 /* -----------------------PROTOTYPES--------------------------*/
 void print_usage(void);
@@ -84,6 +86,18 @@ int main(int argc, char *argv[])
 			int status;
 			waitpid(pid[i], &status, 0);
 		}
+
+		/* Set up the mask of signals to temporarily block. */
+		sigemptyset(&mask);
+		sigaddset(&mask, SIGUSR1);
+
+		/* Wait for a signal to arrive. */
+		//TODO: COUNTER LOGIC 8
+		sigprocmask(SIG_BLOCK, &mask, &oldmask);
+		while (!exit_requested)
+			sigsuspend(&oldmask);
+		sigprocmask(SIG_UNBLOCK, &mask, NULL);
+
 		// =====================================Wait for all the childeren
 		if (exit_requested)
 		{
@@ -231,4 +245,6 @@ void sig_handler(int sig_no)
 {
 	if (sig_no != SIGUSR1 && sig_no != SIGUSR2)
 		exit_requested = sig_no;
+	else
+		sigusr1_count++;
 }
