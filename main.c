@@ -30,7 +30,7 @@
 /*--------------------------GLOBALS---------------------------*/
 pid_t pid[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
 sig_atomic_t exit_requested = 0;
-int *sigusr1_count;
+int *sigusr1_flag, *sigusr2_flag;
 struct flock lock;
 sigset_t mask, oldmask;
 
@@ -40,10 +40,13 @@ int is_parent(void);
 void process_line(int fd, int n);
 void sig_handler(int sig_no);
 
+void wait_mother(void);
+
 int main(int argc, char *argv[])
 {
 	int fd;
-	sigusr1_count = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	sigusr1_flag = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	sigusr2_flag = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
 	printf("argv[1]: %s\n", argv[1]);
 	if (argv[1] == NULL)
@@ -65,7 +68,7 @@ int main(int argc, char *argv[])
 	//Register Signals
 	signal(SIGINT, sig_handler);
 	signal(SIGUSR1, sig_handler);
-
+	signal(SIGUSR2, sig_handler);
 
 	// Create 8 childeren process=========================================
 	for (int i = 0; i < 8; i++)
@@ -85,23 +88,26 @@ int main(int argc, char *argv[])
 		printf("I'm the father [pid: %d, ppid: %d]\n", getpid(), getppid());
 
 		// Wait for all the childeren=====================================
-		/* Wait for a signal to arrive. */
-		//TODO: COUNTER LOGIC 8
-		sigprocmask(SIG_BLOCK, &mask, &oldmask);
-		while (!sigusr1_count)
-			sigsuspend(&oldmask);
-		sigprocmask(SIG_UNBLOCK, &mask, NULL);
-		printf("All children signalled\n");
-		for (int i = 0; i < 8 || exit_requested != 0 ; i++)
-		{
-			int status;
-			waitpid(pid[i], &status, 0);
-		}
 
 		/* Set up the mask of signals to temporarily block. */
 		sigemptyset(&mask);
 		sigaddset(&mask, SIGUSR1);
 
+		/* Wait for a signal to arrive. */
+		sigprocmask(SIG_BLOCK, &mask, &oldmask);
+		while (*sigusr1_flag == -1)
+			sigsuspend(&oldmask);
+		sigprocmask(SIG_UNBLOCK, &mask, NULL);
+		printf("All children signalled\n");
+
+		printf("Parent raising signal SIGUSR2\n");
+		raise(SIGUSR2);
+
+		for (int i = 0; i < 8 || exit_requested != 0; i++)
+		{
+			int status;
+			waitpid(pid[i], &status, 0);
+		}
 
 		// =====================================Wait for all the childeren
 		if (exit_requested)
@@ -115,7 +121,6 @@ int main(int argc, char *argv[])
 			close(fd);
 			exit(EXIT_SUCCESS);
 		}
-
 	}
 
 	// Child processes ===================================================
@@ -127,54 +132,70 @@ int main(int argc, char *argv[])
 		{
 			//printf("I'm C0 [pid: %d, ppid: %d]\n", getpid(), getppid());
 			process_line(fd, 0);
-			(*sigusr1_count)++;
-			if(*sigusr1_count == 8)
+			(*sigusr1_flag)++;
+			if (*sigusr1_flag == 8)
 				raise(SIGUSR1);
+
+			wait_mother();
+
 			_exit(EXIT_SUCCESS);
 		}
 		else if (pid[1] == 0)
 		{
 			//printf("I'm C1 [pid: %d, ppid: %d]\n", getpid(), getppid());
 			process_line(fd, 1);
-			(*sigusr1_count)++;
-			if (*sigusr1_count == 8)
+			(*sigusr1_flag)++;
+			if (*sigusr1_flag == 8)
 				raise(SIGUSR1);
+
+			wait_mother();
+
 			_exit(EXIT_SUCCESS);
 		}
 		else if (pid[2] == 0)
 		{
 			//printf("I'm C2 [pid: %d, ppid: %d]\n", getpid(), getppid());
 			process_line(fd, 2);
-			(*sigusr1_count)++;
-			if (*sigusr1_count == 8)
+			(*sigusr1_flag)++;
+			if (*sigusr1_flag == 8)
 				raise(SIGUSR1);
+
+			wait_mother();
+
 			_exit(EXIT_SUCCESS);
 		}
 		else if (pid[3] == 0)
 		{
 			//printf("I'm C3 [pid: %d, ppid: %d]\n", getpid(), getppid());
 			process_line(fd, 3);
-			(*sigusr1_count)++;
-			if (*sigusr1_count == 8)
+			(*sigusr1_flag)++;
+			if (*sigusr1_flag == 8)
 				raise(SIGUSR1);
+
+			wait_mother();
+
 			_exit(EXIT_SUCCESS);
 		}
 		else if (pid[4] == 0)
 		{
 			//printf("I'm C4 [pid: %d, ppid: %d]\n", getpid(), getppid());
 			process_line(fd, 4);
-			(*sigusr1_count)++;
-			if (*sigusr1_count == 8)
+			(*sigusr1_flag)++;
+			if (*sigusr1_flag == 8)
 				raise(SIGUSR1);
+			wait_mother();
+
 			_exit(EXIT_SUCCESS);
 		}
 		else if (pid[5] == 0)
 		{
 			//printf("I'm C5 [pid: %d, ppid: %d]\n", getpid(), getppid());
 			process_line(fd, 5);
-			(*sigusr1_count)++;
-			if (*sigusr1_count == 8)
+			(*sigusr1_flag)++;
+			if (*sigusr1_flag == 8)
 				raise(SIGUSR1);
+			wait_mother();
+
 			_exit(EXIT_SUCCESS);
 		}
 
@@ -182,18 +203,24 @@ int main(int argc, char *argv[])
 		{
 			//printf("I'm C6 [pid: %d, ppid: %d]\n", getpid(), getppid());
 			process_line(fd, 6);
-			(*sigusr1_count)++;
-			if (*sigusr1_count == 8)
+			(*sigusr1_flag)++;
+			if (*sigusr1_flag == 8)
 				raise(SIGUSR1);
+
+			wait_mother();
+
 			_exit(EXIT_SUCCESS);
 		}
 		else if (pid[7] == 0)
 		{
 			//printf("I'm C7 [pid: %d, ppid: %d]\n", getpid(), getppid());
 			process_line(fd, 7);
-			(*sigusr1_count)++;
-			if (*sigusr1_count == 8)
+			(*sigusr1_flag)++;
+			if (*sigusr1_flag == 8)
 				raise(SIGUSR1);
+
+			wait_mother();
+
 			_exit(EXIT_SUCCESS);
 		}
 	}
@@ -273,7 +300,24 @@ void process_line(int fd, int n)
 void sig_handler(int sig_no)
 {
 	if (sig_no == SIGUSR1)
-		*sigusr1_count = 1;
+		*sigusr1_flag = -1;
+	else if (sig_no == SIGUSR2)
+	{
+		printf("SIGNAL HANDLER SIGUSR2\n");
+		*sigusr2_flag = -1;
+	}
+
 	else
 		exit_requested = sig_no;
+}
+
+void wait_mother(void)
+{
+	sigemptyset(&mask);
+	sigaddset(&mask, SIGUSR2);
+	/* Wait for a signal to arrive. */
+	sigprocmask(SIG_BLOCK, &mask, &oldmask);
+	while (*sigusr2_flag != -1)
+		sigsuspend(&oldmask);
+	sigprocmask(SIG_UNBLOCK, &mask, NULL);
 }
