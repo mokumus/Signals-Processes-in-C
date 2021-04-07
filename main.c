@@ -39,6 +39,7 @@ void print_usage(void);
 int is_parent(void);
 void process_line(int fd, int n);
 void sig_handler(int sig_no);
+float lagrange_interpolation(int d,int n, float data[n][2]);
 
 int main(int argc, char *argv[])
 {
@@ -211,10 +212,12 @@ void process_line(int fd, int n)
 	}
 	after_buffer[j] = '\0';
 
-	const char padding[] = ": x.x\n";
+	float li_res_float = lagrange_interpolation(arr[7][0], 6, arr);
+	char li_res_str[20];
+	snprintf(li_res_str, 20, ": %.1f\n", li_res_float);
 
-	pwrite(fd, padding, strlen(padding), i - j - 3);
-	pwrite(fd, after_buffer, j, i - j - 3 + strlen(padding));
+	pwrite(fd, li_res_str, strlen(li_res_str), i - j - 3);
+	pwrite(fd, after_buffer, j, i - j - 3 + strlen(li_res_str));
 
 	/* Release the lock. */
 	lock.l_type = F_UNLCK;
@@ -231,12 +234,22 @@ void process_line(int fd, int n)
 				 &arr[6][0], &arr[6][1],
 				 &arr[7][0], &arr[7][1]);
 
+	
+
 	(*i_child_done)++;
 	if (*i_child_done == 8)
 		kill(getppid(), SIGUSR1);
 }
 
-void sig_handler(int sig_no)
+float lagrange_interpolation(int d, int n, float data[n][2]){
+	float result = 1.0;
+
+
+	
+	return result;
+}
+
+		void sig_handler(int sig_no)
 {
 	if (sig_no == SIGUSR1)
 		childs_done = 1;
