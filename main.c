@@ -29,7 +29,7 @@
 
 /*--------------------------GLOBALS---------------------------*/
 pid_t pid[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
-sig_atomic_t exit_requested = 0, childs_done = 0;
+sig_atomic_t exit_requested = 0, childs_done = 0, parent_done = 0;
 int *i_child_done;
 struct flock lock;
 sigset_t mask, oldmask;
@@ -64,6 +64,7 @@ int main(int argc, char *argv[])
 	setbuf(stdout, NULL); // Disable stdout buffering for library functions
 	signal(SIGINT, sig_handler);
 	signal(SIGUSR1, sig_handler);
+	signal(SIGUSR2, sig_handler);
 
 	// Create 8 childeren process=========================================
 	for (int i = 0; i < 8; i++)
@@ -96,25 +97,37 @@ int main(int argc, char *argv[])
 
 		printf("Parent's done waiting: %d\n", childs_done);
 
+		//DO PARENT THINGS
+
+		//SIGNAL CHILDEREN(SIGUSR2)
+		for(int i = 0; i < 8; i++){
+			printf("Parent signalling to C%d\n",i);
+			kill(pid[i], SIGUSR2);
+		}
+
 
 
 		// Wait for all the childeren(2. Wait(Waitpid))=====================================
-		int status, p = 0;
-		do
+
+		for (int i = 0; i < 8 || exit_requested != 0; i++)
 		{
-			if (waitpid(pid[p++], &status, 0) == -1)
+			int status;
+			if(waitpid(pid[i], &status, 0) == -1){
 				errExit("waitpid");
-		} while (!WIFEXITED(status) && !WIFSIGNALED(status) && !exit_requested);
+			}
+			printf("waitpid%d\n", i);
+		}
 
 		// =====================================Wait for all the childeren
 		if (exit_requested)
 		{
 			printf("\nExit request by the user. Signal: %d\n", exit_requested);
+			close(fd);
 			exit(EXIT_FAILURE);
 		}
 		else
 		{
-			printf("Father: all childeren exited\n");
+			printf("Parent: all childeren exited\n");
 			close(fd);
 			exit(EXIT_SUCCESS);
 		}
@@ -129,6 +142,19 @@ int main(int argc, char *argv[])
 			{
 				printf("I'm C%d [pid: %d, ppid: %d]\n", i, getpid(), getppid());
 				process_line(fd, i);
+	
+
+				sigemptyset(&mask);
+				sigaddset(&mask, SIGUSR2);
+				/* Wait for a signal to arrive. */
+				sigprocmask(SIG_BLOCK, &mask, &oldmask);
+				printf("C%d is waiting\n", i);
+				while (!parent_done)
+					sigsuspend(&oldmask);
+				sigprocmask(SIG_UNBLOCK, &mask, NULL);
+
+				printf("C%d is done waiting\n", i);
+
 				_exit(EXIT_SUCCESS);
 			}
 		}
@@ -214,6 +240,8 @@ void sig_handler(int sig_no)
 {
 	if (sig_no == SIGUSR1)
 		childs_done = 1;
+	else if (sig_no == SIGUSR2)
+		parent_done = 1;
 	else
 		exit_requested = sig_no;
 }
