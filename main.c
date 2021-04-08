@@ -37,7 +37,7 @@ sigset_t mask, oldmask;
 /* -----------------------PROTOTYPES--------------------------*/
 void print_usage(void);
 int is_parent(void);
-void process_line(int fd, int n);
+void process_line(int fd, int n, int round);
 void sig_handler(int sig_no);
 float lagrange(int n, int k, float val, float data[][2]);
 float calculate(int n, float x, float data[][2]);
@@ -143,8 +143,10 @@ int main(int argc, char *argv[])
       if (pid[i] == 0)
       {
         printf("I'm C%d [pid: %d, ppid: %d]\n", i, getpid(), getppid());
-        process_line(fd, i);
+        //Go for first round
+        process_line(fd, i, 0);
 
+        // Wait for parent to calculate avarage error for first round
         sigemptyset(&mask);
         sigaddset(&mask, SIGUSR2);
         /* Wait for a signal to arrive. */
@@ -153,9 +155,11 @@ int main(int argc, char *argv[])
         while (!parent_done)
           sigsuspend(&oldmask);
         sigprocmask(SIG_UNBLOCK, &mask, NULL);
-
+        // Done waiting===============================
         printf("C%d is done waiting\n", i);
 
+        // Go for second round & exit child
+        process_line(fd, i, 1);
         _exit(EXIT_SUCCESS);
       }
     }
@@ -177,7 +181,7 @@ int is_parent(void)
   return pid[0] != 0 && pid[1] != 0 && pid[2] != 0 && pid[3] != 0 && pid[4] != 0 && pid[5] != 0 && pid[6] != 0 && pid[7] != 0;
 }
 
-void process_line(int fd, int n)
+void process_line(int fd, int n, int round)
 {
   int i = 0, k = 0, j = 0;
   int line = 0;
@@ -220,10 +224,9 @@ void process_line(int fd, int n)
     after_buffer[j++] = c;
   }
   after_buffer[j] = '\0';
-  printf("arr[7][0]: %.1f\n", arr[7][0]);
-  float li_res_float = calculate(6, arr[7][0], arr);
+  float li_res_float = calculate(6+round, arr[7][0], arr);
   char li_res_str[20];
-  snprintf(li_res_str, 20, ": %.1f\n", li_res_float);
+  snprintf(li_res_str, 20, ":-->%.1f\n", li_res_float);
 
   pwrite(fd, li_res_str, strlen(li_res_str), i - j - 3);
   pwrite(fd, after_buffer, j, i - j - 3 + strlen(li_res_str));
@@ -232,9 +235,13 @@ void process_line(int fd, int n)
   lock.l_type = F_UNLCK;
   fcntl(fd, F_SETLKW, &lock);
 
-  (*i_child_done)++;
-  if (*i_child_done == 8)
-    kill(getppid(), SIGUSR1);
+
+  if(round == 0){
+    (*i_child_done)++;
+    if (*i_child_done == 8)
+      kill(getppid(), SIGUSR1);
+  }
+
 }
 
 float lagrange(int n, int j, float val, float data[][2])
