@@ -27,7 +27,7 @@
   } while (0)
 
 #define MY_FLAGS O_RDWR | O_SYNC
-#define DEBUG 0
+#define DEBUG 1
 
 /*--------------------------GLOBALS---------------------------*/
 pid_t pid[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
@@ -37,15 +37,25 @@ struct flock lock;
 sigset_t mask, oldmask;
 
 /* -----------------------PROTOTYPES--------------------------*/
-void print_usage(void);
-int is_parent(void);
+
+// Main worker
 void process_line(int fd, int n, int round);
+
+// Signal handler
 void sig_handler(int sig_no);
+
+// Calculation
 float lagrange(int n, int k, float val, float data[][2]);
 float calculate(int n, float x, float data[][2], int pol_no, int print);
 float avarage_error(int fd, int round);
-float my_fabs(float a, float b);
+
+// Printing
+void print_usage(void);
 void debug_printf(const char *format, ...);
+
+// Misc
+float my_fabs(float a, float b);
+int is_parent(void);
 
 int main(int argc, char *argv[])
 {
