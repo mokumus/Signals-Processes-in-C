@@ -29,8 +29,6 @@
 #define MY_FLAGS O_RDWR | O_SYNC
 #define DEBUG 0
 
-
-
 /*--------------------------GLOBALS---------------------------*/
 pid_t pid[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
 sig_atomic_t exit_requested = 0, childs_done = 0, parent_done = 0;
@@ -264,14 +262,15 @@ float lagrange(int n, int j, float val, float data[][2])
   return result;
 }
 
-float calculate(int n, float x, float data[][2],int pol_no, int print)
+float calculate(int n, float x, float data[][2], int pol_no, int print)
 {
   float result = 0.0;
 
-  if(print)
+  if (print)
     printf("Polynomial %d: ", pol_no);
 
-  for (int i = 0; i < n; i++){
+  for (int i = 0; i < n; i++)
+  {
     float lgr = lagrange(n, i, x, data);
     result += data[i][1] * lgr;
     if (print)
@@ -342,7 +341,7 @@ void sig_handler(int sig_no)
     exit_requested = sig_no;
 }
 
-void debug_printf( const char *format, ...)
+void debug_printf(const char *format, ...)
 {
   va_list args;
   va_start(args, format);
