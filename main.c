@@ -16,6 +16,7 @@
 #include <signal.h>
 #include <errno.h>
 #include <sys/mman.h>
+#include <stdarg.h>
 
 /*--------------------------DEFINES---------------------------*/
 #define errExit(msg)    \
@@ -26,6 +27,9 @@
   } while (0)
 
 #define MY_FLAGS O_RDWR | O_SYNC
+#define DEBUG 0
+
+
 
 /*--------------------------GLOBALS---------------------------*/
 pid_t pid[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
@@ -40,7 +44,10 @@ int is_parent(void);
 void process_line(int fd, int n, int round);
 void sig_handler(int sig_no);
 float lagrange(int n, int k, float val, float data[][2]);
-float calculate(int n, float x, float data[][2]);
+float calculate(int n, float x, float data[][2], int pol_no, int print);
+float avarage_error(int fd, int round);
+float my_fabs(float a, float b);
+void debug_printf(const char *format, ...);
 
 int main(int argc, char *argv[])
 {
@@ -83,7 +90,7 @@ int main(int argc, char *argv[])
   if (is_parent())
   {
     // That's the father, it waits for all the childs
-    printf("I'm the father [pid: %d, ppid: %d]\n", getpid(), getppid());
+    debug_printf("I'm the father [pid: %d, ppid: %d]\n", getpid(), getppid());
 
     // Wait for all the childeren(1. Wait(SIGUSR1))=====================================
 
@@ -92,19 +99,20 @@ int main(int argc, char *argv[])
     sigaddset(&mask, SIGUSR1);
     /* Wait for a signal to arrive. */
     sigprocmask(SIG_BLOCK, &mask, &oldmask);
-    printf("Parent waiting: %d\n", childs_done);
+    debug_printf("Parent waiting: %d\n", childs_done);
     while (!childs_done)
       sigsuspend(&oldmask);
     sigprocmask(SIG_UNBLOCK, &mask, NULL);
 
-    printf("Parent's done waiting: %d\n", childs_done);
+    debug_printf("Parent's done waiting: %d\n", childs_done);
 
-    //DO PARENT THINGS
+    //Calculate avarage error 1
+    printf("Error of polynomial of degree 5: %.1f\n", avarage_error(fd, 0));
 
     //SIGNAL CHILDEREN(SIGUSR2)
     for (int i = 0; i < 8; i++)
     {
-      printf("Parent signalling to C%d\n", i);
+      debug_printf("Parent signalling to C%d\n", i);
       kill(pid[i], SIGUSR2);
     }
 
@@ -117,10 +125,13 @@ int main(int argc, char *argv[])
       {
         errExit("waitpid");
       }
-      printf("waitpid%d\n", i);
+      debug_printf("waitpid%d\n", i);
     }
-
     // =====================================Wait for all the childeren
+
+    //Calculate avarage error 2
+    printf("Error of polynomial of degree 6: %.1f\n", avarage_error(fd, 1));
+
     if (exit_requested)
     {
       printf("\nExit request by the user. Signal: %d\n", exit_requested);
@@ -129,7 +140,7 @@ int main(int argc, char *argv[])
     }
     else
     {
-      printf("Parent: all childeren exited\n");
+      debug_printf("Parent: all childeren exited\n");
       close(fd);
       exit(EXIT_SUCCESS);
     }
@@ -142,7 +153,7 @@ int main(int argc, char *argv[])
     {
       if (pid[i] == 0)
       {
-        printf("I'm C%d [pid: %d, ppid: %d]\n", i, getpid(), getppid());
+        debug_printf("I'm C%d [pid: %d, ppid: %d]\n", i, getpid(), getppid());
         //Go for first round
         process_line(fd, i, 0);
 
@@ -151,12 +162,12 @@ int main(int argc, char *argv[])
         sigaddset(&mask, SIGUSR2);
         /* Wait for a signal to arrive. */
         sigprocmask(SIG_BLOCK, &mask, &oldmask);
-        printf("C%d is waiting\n", i);
+        debug_printf("C%d is waiting\n", i);
         while (!parent_done)
           sigsuspend(&oldmask);
         sigprocmask(SIG_UNBLOCK, &mask, NULL);
         // Done waiting===============================
-        printf("C%d is done waiting\n", i);
+        debug_printf("C%d is done waiting\n", i);
 
         // Go for second round & exit child
         process_line(fd, i, 1);
@@ -189,7 +200,6 @@ void process_line(int fd, int n, int round)
   char buffer[1024];
   char after_buffer[1024];
   float arr[8][2];
-  //char buffer[255];
 
   /* Initialize the flock structure. */
   memset(&lock, 0, sizeof(lock));
@@ -218,13 +228,12 @@ void process_line(int fd, int n, int round)
          &arr[6][0], &arr[6][1],
          &arr[7][0], &arr[7][1]);
 
-  //printf("buff%d: %s\n", n,buffer);
   while (pread(fd, &c, 1, (i++) - 1))
   {
     after_buffer[j++] = c;
   }
   after_buffer[j] = '\0';
-  float li_res_float = calculate(6+round, arr[7][0], arr);
+  float li_res_float = calculate(6 + round, arr[7][0], arr, n, round);
   char li_res_str[20];
   snprintf(li_res_str, 20, ":-->%.1f\n", li_res_float);
 
@@ -235,13 +244,12 @@ void process_line(int fd, int n, int round)
   lock.l_type = F_UNLCK;
   fcntl(fd, F_SETLKW, &lock);
 
-
-  if(round == 0){
+  if (round == 0)
+  {
     (*i_child_done)++;
     if (*i_child_done == 8)
       kill(getppid(), SIGUSR1);
   }
-
 }
 
 float lagrange(int n, int j, float val, float data[][2])
@@ -256,14 +264,72 @@ float lagrange(int n, int j, float val, float data[][2])
   return result;
 }
 
-float calculate(int n, float x, float data[][2])
+float calculate(int n, float x, float data[][2],int pol_no, int print)
 {
   float result = 0.0;
 
-  for (int i = 0; i < n; i++)
-    result += data[i][1] * lagrange(n, i, x, data);
+  if(print)
+    printf("Polynomial %d: ", pol_no);
+
+  for (int i = 0; i < n; i++){
+    float lgr = lagrange(n, i, x, data);
+    result += data[i][1] * lgr;
+    if (print)
+      printf("%.1f,", lgr);
+  }
+
+  if (print)
+    printf("\n");
 
   return result;
+}
+
+float avarage_error(int fd, int round)
+{
+  int i = 0, k = 0, n = 0;
+  int line = 0;
+  char c;
+  char buffer[1024];
+
+  float fx7 = 0.0;
+  float px7 = 0.0;
+  float error_sum = 0.0;
+
+  while (pread(fd, &c, 1, i++))
+  {
+    if (line == n)
+      buffer[k++] = c;
+
+    if (c == '\n')
+    {
+      buffer[k - 1] = '\0';
+      line++;
+      n++;
+      k = 0;
+      if (round == 0)
+      {
+        sscanf(buffer, "%*f,%*f,%*f,%*f,%*f,%*f,%*f,%*f,%*f,%*f,%*f,%*f,%*f,%*f,%*f,%f:-->%f", &px7, &fx7);
+        float error = my_fabs(fx7, px7);
+        error_sum += error;
+        debug_printf("round 0 -- error%d: %.1f\n", n, error);
+      }
+
+      else if (round == 1)
+      {
+        sscanf(buffer, "%*f,%*f,%*f,%*f,%*f,%*f,%*f,%*f,%*f,%*f,%*f,%*f,%*f,%*f,%*f,%f:-->%*f:-->%f", &px7, &fx7);
+        float error = my_fabs(fx7, px7);
+        error_sum += error;
+        debug_printf("round 1 -- error%d: %.1f\n", n, error);
+      }
+    }
+  }
+
+  return error_sum / 8;
+}
+
+float my_fabs(float a, float b)
+{
+  return (a - b) < 0.0 ? (a - b) * (-1) : (a - b);
 }
 
 void sig_handler(int sig_no)
@@ -274,4 +340,15 @@ void sig_handler(int sig_no)
     parent_done = 1;
   else
     exit_requested = sig_no;
+}
+
+void debug_printf( const char *format, ...)
+{
+  va_list args;
+  va_start(args, format);
+
+  if (DEBUG)
+    vprintf(format, args);
+
+  va_end(args);
 }
