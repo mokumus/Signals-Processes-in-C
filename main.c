@@ -39,9 +39,10 @@ void print_usage(void);
 int is_parent(void);
 void process_line(int fd, int n);
 void sig_handler(int sig_no);
-float lagrange_interpolation(int d, int n, float data[n][2]);
+float lagrange(int n, int k, float val, float data[][2]);
+float calculate(int n, float x, float data[][2]);
 
-int main(int argc, char *argv[])
+		int main(int argc, char *argv[])
 {
 	int fd;
 	i_child_done = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
@@ -204,6 +205,15 @@ void process_line(int fd, int n)
 		}
 	}
 
+	sscanf(buffer, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f", &arr[0][0], &arr[0][1],
+				 &arr[1][0], &arr[1][1],
+				 &arr[2][0], &arr[2][1],
+				 &arr[3][0], &arr[3][1],
+				 &arr[4][0], &arr[4][1],
+				 &arr[5][0], &arr[5][1],
+				 &arr[6][0], &arr[6][1],
+				 &arr[7][0], &arr[7][1]);
+
 	//printf("buff%d: %s\n", n,buffer);
 	while (pread(fd, &c, 1, (i++) - 1))
 	{
@@ -211,7 +221,7 @@ void process_line(int fd, int n)
 	}
 	after_buffer[j] = '\0';
 
-	float li_res_float = lagrange_interpolation(arr[7][0], 6, arr);
+	float li_res_float = calculate(8, 6, arr);
 	char li_res_str[20];
 	snprintf(li_res_str, 20, ": %.1f\n", li_res_float);
 
@@ -224,25 +234,36 @@ void process_line(int fd, int n)
 
 	//printf("after_buffer:\n%s ", after_buffer);
 
-	sscanf(buffer, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f", &arr[0][0], &arr[0][1],
-				 &arr[1][0], &arr[1][1],
-				 &arr[2][0], &arr[2][1],
-				 &arr[3][0], &arr[3][1],
-				 &arr[4][0], &arr[4][1],
-				 &arr[5][0], &arr[5][1],
-				 &arr[6][0], &arr[6][1],
-				 &arr[7][0], &arr[7][1]);
+
 
 	(*i_child_done)++;
 	if (*i_child_done == 8)
 		kill(getppid(), SIGUSR1);
 }
 
-float lagrange_interpolation(int d, int n, float data[n][2])
+float lagrange(int n, int k, float val, float data[][2])
 {
 	float result = 1.0;
-
+	for (int i = 0; i < n; i++)
+	{
+		if (i != k)
+			result = result * ((val - data[i][0]) / (data[k][0] - data[i][0]));
+	}
 	return result;
+}
+
+float calculate(int n, float x, float data[][2])
+{
+	float intPolasyon = 0.0;
+	float L[8];
+	for (int i = 0; i < n; i++)
+	{
+		L[i] = lagrange(n, i, x, data);
+		intPolasyon += data[i][1] * L[i];
+	}
+
+	printf("\n");
+	return intPolasyon;
 }
 
 void sig_handler(int sig_no)
