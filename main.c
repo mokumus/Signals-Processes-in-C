@@ -27,7 +27,7 @@
   } while (0)
 
 #define MY_FLAGS O_RDWR | O_SYNC
-#define DEBUG 1
+#define DEBUG 0
 
 /*--------------------------GLOBALS---------------------------*/
 pid_t pid[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
@@ -60,6 +60,7 @@ int is_parent(void);
 int main(int argc, char *argv[])
 {
   int fd;
+  // Variable to be shared among children processes should be mmap to memory
   i_child_done = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
   *i_child_done = 0;
 
@@ -79,6 +80,7 @@ int main(int argc, char *argv[])
   }
 
   setbuf(stdout, NULL); // Disable stdout buffering for library functions
+  // Register handlers before forking
   signal(SIGINT, sig_handler);
   signal(SIGUSR1, sig_handler);
   signal(SIGUSR2, sig_handler);
@@ -188,6 +190,10 @@ int main(int argc, char *argv[])
   return 0;
 }
 
+/**
+ * @brief  Prints usage information  
+ * @retval None
+ */
 void print_usage(void)
 {
   printf("========================================\n"
@@ -195,11 +201,23 @@ void print_usage(void)
          "$ ./processM pathToFile\n");
 }
 
+/**
+ * @brief  
+ * @note   
+ * @retval 1 if caller process it the parent, 0 otherwise
+ */
 int is_parent(void)
 {
   return pid[0] != 0 && pid[1] != 0 && pid[2] != 0 && pid[3] != 0 && pid[4] != 0 && pid[5] != 0 && pid[6] != 0 && pid[7] != 0;
 }
 
+/**
+ * @brief  processes a single line(n) on the given file pointer(fd) 
+ * @param  fd: file descriptor given by open()
+ * @param  n: nth line to be processed
+ * @param  round: 0 - no prints, degree 5, 1 - prints active, degree 6
+ * @retval None
+ */
 void process_line(int fd, int n, int round)
 {
   int i = 0, k = 0, j = 0;
@@ -260,6 +278,14 @@ void process_line(int fd, int n, int round)
   }
 }
 
+/**
+ * @brief  Calculte the kth coefficient at val of polynomial degree n
+ * @param  n: degree of the polynomial
+ * @param  k: kth coefficent
+ * @param  val: value to be estimated
+ * @param  data[][2]: data points(x,y) 
+ * @retval L(x)
+ */
 float lagrange(int n, int j, float val, float data[][2])
 {
   float result = 1.0;
@@ -272,6 +298,15 @@ float lagrange(int n, int j, float val, float data[][2])
   return result;
 }
 
+/**
+ * @brief  wrapper for lagrange, manages printing operations and coefficeint loop
+ * @param  n: degree of the polynomial
+ * @param  x: value to be estimated
+ * @param  data[][2]: data points(x,y)
+ * @param  pol_no: child no
+ * @param  print: 0 no prints, 1 prints
+ * @retval P(x)
+ */
 float calculate(int n, float x, float data[][2], int pol_no, int print)
 {
   float result = 0.0;
@@ -293,6 +328,12 @@ float calculate(int n, float x, float data[][2], int pol_no, int print)
   return result;
 }
 
+/**
+ * @brief  calculates avarage error of 8 polynomials given by the file according to fd 
+ * @param  fd: file descriptor
+ * @param  round:  0 - no prints, degree 5, 1 - prints active, degree 6
+ * @retval error rate
+ */
 float avarage_error(int fd, int round)
 {
   int i = 0, k = 0, n = 0;
@@ -336,11 +377,23 @@ float avarage_error(int fd, int round)
   return error_sum / 8;
 }
 
+/**
+ * @brief  return the absolute value of float a - b
+ * @note   
+ * @param  a: float 1 
+ * @param  b: float 2
+ * @retval | a - b |
+ */
 float my_fabs(float a, float b)
 {
   return (a - b) < 0.0 ? (a - b) * (-1) : (a - b);
 }
 
+/**
+ * @brief  Handles SIGINT, SIGUSR1 and SIGUSR2 
+ * @param  sig_no: signal number 
+ * @retval None
+ */
 void sig_handler(int sig_no)
 {
   if (sig_no == SIGUSR1)
@@ -351,6 +404,11 @@ void sig_handler(int sig_no)
     exit_requested = sig_no;
 }
 
+/**
+ * @brief  Wraps vprintf for debug toggle  
+ * @param  *format: 
+ * @retval None
+ */
 void debug_printf(const char *format, ...)
 {
   va_list args;
