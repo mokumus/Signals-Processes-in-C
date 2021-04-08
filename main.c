@@ -220,8 +220,8 @@ void process_line(int fd, int n)
     after_buffer[j++] = c;
   }
   after_buffer[j] = '\0';
-
-  float li_res_float = calculate(8, 6, arr);
+  printf("arr[7][0]: %.1f\n", arr[7][0]);
+  float li_res_float = calculate(6, arr[7][0], arr);
   char li_res_str[20];
   snprintf(li_res_str, 20, ": %.1f\n", li_res_float);
 
