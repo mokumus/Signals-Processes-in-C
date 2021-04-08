@@ -39,7 +39,7 @@ void print_usage(void);
 int is_parent(void);
 void process_line(int fd, int n);
 void sig_handler(int sig_no);
-float lagrange_interpolation(int d,int n, float data[n][2]);
+float lagrange_interpolation(int d, int n, float data[n][2]);
 
 int main(int argc, char *argv[])
 {
@@ -101,19 +101,19 @@ int main(int argc, char *argv[])
 		//DO PARENT THINGS
 
 		//SIGNAL CHILDEREN(SIGUSR2)
-		for(int i = 0; i < 8; i++){
-			printf("Parent signalling to C%d\n",i);
+		for (int i = 0; i < 8; i++)
+		{
+			printf("Parent signalling to C%d\n", i);
 			kill(pid[i], SIGUSR2);
 		}
-
-
 
 		// Wait for all the childeren(2. Wait(Waitpid))=====================================
 
 		for (int i = 0; i < 8 || exit_requested != 0; i++)
 		{
 			int status;
-			if(waitpid(pid[i], &status, 0) == -1){
+			if (waitpid(pid[i], &status, 0) == -1)
+			{
 				errExit("waitpid");
 			}
 			printf("waitpid%d\n", i);
@@ -143,7 +143,6 @@ int main(int argc, char *argv[])
 			{
 				printf("I'm C%d [pid: %d, ppid: %d]\n", i, getpid(), getppid());
 				process_line(fd, i);
-	
 
 				sigemptyset(&mask);
 				sigaddset(&mask, SIGUSR2);
@@ -234,22 +233,19 @@ void process_line(int fd, int n)
 				 &arr[6][0], &arr[6][1],
 				 &arr[7][0], &arr[7][1]);
 
-	
-
 	(*i_child_done)++;
 	if (*i_child_done == 8)
 		kill(getppid(), SIGUSR1);
 }
 
-float lagrange_interpolation(int d, int n, float data[n][2]){
+float lagrange_interpolation(int d, int n, float data[n][2])
+{
 	float result = 1.0;
 
-
-	
 	return result;
 }
 
-		void sig_handler(int sig_no)
+void sig_handler(int sig_no)
 {
 	if (sig_no == SIGUSR1)
 		childs_done = 1;
